@@ -1,0 +1,47 @@
+here::i_am("code/00_data_clean.R")
+
+library(tidyverse)
+library(tableone)
+library(here)
+
+raw_path    <- here("covid_sub.csv")
+out_dir     <- here("output", "tables")
+clean_path  <- file.path(out_dir, "covid_clean.rds")
+table1_path <- file.path(out_dir, "table1.rds")
+
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Load & lowercase
+covid_raw <- read_csv(raw_path, col_types = cols()) %>%
+  rename_with(tolower)
+
+# Clean & feature‑engineer
+covid_clean <- covid_raw %>%
+  # drop rows missing critical demographics
+  filter(!is.na(age), !is.na(sex)) %>%
+  mutate(
+    # factorize sex
+    sex = factor(sex),
+    # convert DATE_DIED ("dd/mm/yyyy") → NA when blank → death_indicator
+    death_indicator = if_else(is.na(date_died) | date_died == "", 0L, 1L),
+    # age groups
+    age_group = case_when(
+      age < 18          ~ "<18",
+      age < 40          ~ "18–39",
+      age < 60          ~ "40–59",
+      TRUE              ~ "60+"
+    ) %>% factor(levels = c("<18","18–39","40–59","60+"))
+  )
+
+# Create Table1
+# here we summarize age, sex, age_group, and death_indicator
+vars    <- c("age", "sex", "age_group", "death_indicator")
+tab1    <- CreateTableOne(vars = vars, data = covid_clean)
+tab1_df <- as.data.frame(print(tab1, showAllLevels = TRUE, printToggle = FALSE))
+
+# Save outputs as .rds
+saveRDS(covid_clean, clean_path)
+saveRDS(tab1_df,     table1_path)
+
+message("✔ Cleaned data saved to:     ", clean_path)
+message("✔ Table1 saved to:          ", table1_path)
