@@ -1,0 +1,49 @@
+---
+title: "Covid Analysis Report"
+date: "2025-04-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(here)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+```
+
+## Introduction
+
+This report summarizes findings from an analysis of COVID-19 patient data in Mexico. The dataset includes demographic and clinical features of over a million patients, with a 20% subset used for initial analysis. We focused on how age and pre-existing health conditions relate to COVID-19 mortality using descriptive visualizations and logistic regression modeling. All results in this report were generated ahead of time and saved in the `output/` folder for reproducibility.
+
+## COVID-19 Mortality by Age Group
+
+```{r, echo=FALSE, out.width="80%"}
+knitr::include_graphics(here("output", "figures", 
+                             "bar_age_group_vs_death.png"))
+```
+This bar chart illustrates the relationship between patient age group and COVID-19 mortality outcome. Younger age groups (<18, 18–39) had very low death proportions, whereas mortality increased significantly in the 40–59 group and was highest among individuals aged 60 and above. These results highlight age as a critical factor in predicting COVID-19 severity.
+
+## Logistic Regression Model of Mortality Risk
+
+```{r model_results, echo=FALSE}
+glm_coef <- readRDS(here::here("output", "tables", 
+                               "glm_coefficients.rds"))
+
+# Round numeric columns to 2 decimal places
+glm_coef_clean <- glm_coef %>%
+  select(-conf.low, -conf.high) %>%
+  mutate(across(where(is.numeric) & !matches("p.value"), ~ round(.x, 2))) %>%
+  mutate(p.value = ifelse(p.value < 0.001, "<0.001", round(p.value, 3)))
+
+kable(glm_coef_clean, caption = "Logistic Regression Coefficients for COVID-19 Mortality")
+```
+
+We fitted a logistic regression model to predict the likelihood of death (death_indicator) based on demographic and clinical factors. Key findings:
+
+Age has a strong positive association with mortality (p < 0.001).
+
+Chronic conditions such as diabetes, hypertension, immunosuppression, obesity, and renal disease significantly increase the risk of death.
+
+Asthma was negatively associated with death (p < 0.001).
+
+Tobacco use and cardiovascular disease were not significant predictors in this model (p > 0.05).
